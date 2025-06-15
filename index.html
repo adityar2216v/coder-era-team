@@ -7,15 +7,35 @@
     <link rel="icon" type="image/jpg" href="logo.jpg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <style>
         body {
-            background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
+            margin: 0;
             color: #333;
             min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
         }
+        #background-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.8;
+             background-color: rgba(255, 255, 255, 0.9);
+         }
+         body {
+             background: white;
+         }
+         main {
+             position: relative;
+             z-index: 1;
+         }
         .card-gradient {
             background: linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
             background-size: 200% 200%;
@@ -46,6 +66,7 @@
     </style>
 </head>
 <body class="min-h-screen">
+    <canvas id="background-canvas"></canvas>
     <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
@@ -54,7 +75,7 @@
                     <span class="ml-2 text-xl font-bold text-gray-800">Coders ERA Team</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <a href="#" class="text-gray-600 hover:text-blue-500">Home</a>
+                    <a href="https://coders-era.vercel.app/" class="text-gray-600 hover:text-blue-500">Home</a>
                 </div>
             </div>
         </div>
@@ -77,6 +98,129 @@
     </main>
 
     <script>
+        // Three.js Background Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            canvas: document.querySelector('#background-canvas'),
+            alpha: true
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.position.z = 30;
+
+        // Create particles
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 15000;
+         const posArray = new Float32Array(particlesCount * 3);
+         const colorsArray = new Float32Array(particlesCount * 3);
+         
+         function getGradientColor(t) {
+             // Define gradient colors (purple to blue to cyan)
+             const colors = [
+                 {r: 0.8, g: 0.2, b: 0.8}, // Purple
+                 {r: 0.2, g: 0.4, b: 1.0}, // Blue
+                 {r: 0.2, g: 0.8, b: 0.8}  // Cyan
+             ];
+             
+             const segment = Math.floor(t * (colors.length - 1));
+             const progress = (t * (colors.length - 1)) - segment;
+             
+             const color1 = colors[segment];
+             const color2 = colors[Math.min(segment + 1, colors.length - 1)];
+             
+             return {
+                 r: color1.r + (color2.r - color1.r) * progress,
+                 g: color1.g + (color2.g - color1.g) * progress,
+                 b: color1.b + (color2.b - color1.b) * progress
+             };
+         }
+
+         for(let i = 0; i < particlesCount * 3; i += 3) {
+             // Position
+             posArray[i] = (Math.random() - 0.5) * 100;
+             posArray[i + 1] = (Math.random() - 0.5) * 100;
+             posArray[i + 2] = (Math.random() - 0.5) * 100;
+             
+             // Colors with gradient
+             const t = Math.random();
+             const color = getGradientColor(t);
+             colorsArray[i] = color.r;
+             colorsArray[i + 1] = color.g;
+             colorsArray[i + 2] = color.b;
+         }
+
+         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+         particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+         const particlesMaterial = new THREE.PointsMaterial({
+             size: 0.2,
+             vertexColors: true,
+             transparent: true,
+             opacity: 0.8
+         });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // Animation variables
+         let mouseX = 0;
+         let mouseY = 0;
+         let targetX = 0;
+         let targetY = 0;
+         const windowHalfX = window.innerWidth / 2;
+         const windowHalfY = window.innerHeight / 2;
+
+         // Animation
+         function animate() {
+             requestAnimationFrame(animate);
+
+             // Smooth rotation
+             targetX = mouseX * 0.001;
+             targetY = mouseY * 0.001;
+             particlesMesh.rotation.x += (targetY - particlesMesh.rotation.x) * 0.05;
+             particlesMesh.rotation.y += (targetX - particlesMesh.rotation.y) * 0.05;
+
+             // Gentle wave motion
+             const positions = particlesGeometry.attributes.position.array;
+             const time = Date.now() * 0.0001;
+              const colors = particlesGeometry.attributes.color.array;
+
+              for(let i = 0; i < positions.length; i += 3) {
+                  positions[i + 1] += Math.sin(time + positions[i] * 0.1) * 0.1;
+                  
+                  // Animate colors
+                  const t = (Math.sin(time * 2 + positions[i] * 0.05) + 1) * 0.5;
+                  const color = getGradientColor(t);
+                  colors[i] = color.r;
+                  colors[i + 1] = color.g;
+                  colors[i + 2] = color.b;
+              }
+              particlesGeometry.attributes.color.needsUpdate = true;
+             particlesGeometry.attributes.position.needsUpdate = true;
+
+             renderer.render(scene, camera);
+         }
+
+         // Handle window resize
+         function onWindowResize() {
+             camera.aspect = window.innerWidth / window.innerHeight;
+             camera.updateProjectionMatrix();
+             renderer.setSize(window.innerWidth, window.innerHeight);
+         }
+
+         // Mouse interaction
+         function onDocumentMouseMove(event) {
+             mouseX = (event.clientX - windowHalfX);
+             mouseY = (event.clientY - windowHalfY);
+         }
+
+         window.addEventListener('resize', onWindowResize);
+         document.addEventListener('mousemove', onDocumentMouseMove);
+
+         animate();
+
+
         const leaders = [
             {
                 img: 'me.jpg',
